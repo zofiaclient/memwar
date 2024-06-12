@@ -1,0 +1,11 @@
+**/Cargo.lock
+**/*.iml
+
+**/target/
+**/.idea/
+
+# Until properly tested..
+
+memwar-inject/
+memwar-payload/
+memwar-loader/
