@@ -61,9 +61,6 @@ impl Allocation {
         let mut tmp = 0;
 
         for (i, offset) in offsets.iter().enumerate() {
-            println!("Reading to: {:p}", addr_of_mut!(tmp));
-            println!("Offset {offset}, current address: {addr:p}");
-
             if i == 0
                 && ReadProcessMemory(
                     self.h_process,
@@ -76,8 +73,6 @@ impl Allocation {
                 return Err(GetLastError());
             }
             
-            println!("Read pointer: {tmp:02X}");
-
             addr = (offset + tmp) as *mut _;
 
             if ReadProcessMemory(
