@@ -58,7 +58,8 @@ impl WriteTask {
         self.is_enabled
     }
 
-    unsafe fn spawn(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn spawn(
         alloc: SendAlloc,
         dest_ptr: Arc<Mutex<CVoidPtr>>,
         data: Arc<Mutex<CVoidPtr>>,
