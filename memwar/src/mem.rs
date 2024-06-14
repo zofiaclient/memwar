@@ -8,6 +8,29 @@ use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::memoryapi::{ReadProcessMemory, VirtualAllocEx, WriteProcessMemory};
 use winapi::um::winnt::{HANDLE, MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE};
 
+/// Required wrapper struct for sharing pointers between threads.
+#[derive(Copy, Clone)]
+pub struct CVoidPtr(pub *mut c_void);
+
+unsafe impl Send for CVoidPtr {}
+
+/// Required wrapper struct for sending [Allocation]s across threads.
+#[derive(Clone, Copy)]
+pub struct SendAlloc {
+    h_process: CVoidPtr,
+    p_base: CVoidPtr,
+}
+
+impl SendAlloc {
+    pub const fn new(h_process: CVoidPtr, p_base: CVoidPtr) -> Self {
+        Self { h_process, p_base }
+    }
+
+    pub const fn p_base(&self) -> CVoidPtr {
+        self.p_base
+    }
+}
+
 /// A wrapper struct for more direct approaches to the Read/WriteProcessMemory API functions.
 pub struct Allocation {
     h_process: HANDLE,
@@ -226,6 +249,26 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u32(&self, addr: *mut c_void, data: u32) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_f32(&self, addr: *mut c_void, data: f32) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i32(&self, addr: *mut c_void, data: i32) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u16(&self, addr: *mut c_void, data: u16) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 2)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_at_base(
         &self,
         data: *mut c_void,
@@ -244,15 +287,34 @@ impl Allocation {
         self.write(self.base.add(offset), data, data_size)
     }
 
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u32_offset(&self, offset: usize, data: u32) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_f32_offset(&self, offset: usize, data: f32) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i32_offset(&self, offset: usize, data: i32) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    /// Returns a pointer to the base of this allocation.
     pub const fn inner(&self) -> *mut c_void {
         self.base
     }
 
+    /// Allocates memory in a remote process without a specific base address. The OS will choose the
+    /// address instead.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn alloc_remote_anywhere(h_process: HANDLE, size: usize) -> Result<Self, DWORD> {
         Self::alloc_remote(h_process, null_mut(), size)
     }
 
+    /// Allocates memory in a remote process at the specified base address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn alloc_remote(
         h_process: HANDLE,
@@ -281,5 +343,14 @@ impl Allocation {
 impl Debug for Allocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:02X}", self.base as usize)
+    }
+}
+
+impl From<SendAlloc> for Allocation {
+    fn from(value: SendAlloc) -> Self {
+        Self {
+            h_process: value.h_process.0,
+            base: value.p_base().0,
+        }
     }
 }
