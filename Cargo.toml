@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "examples/notepad",
+#    "examples/notepad",
     "memwar",
-    "memwar-inject",
-    "memwar-loader",
-    "memwar-payload"
+#    "memwar-inject",
+#    "memwar-loader",
+#    "memwar-payload"
 ]

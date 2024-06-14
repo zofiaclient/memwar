@@ -22,41 +22,67 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_f64(&self, addr: *mut c_void) -> Result<f64, DWORD> {
+        let buf: [u8; 8] = self.read_const(addr)?;
+        Ok(f64::from_le_bytes(buf))
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_i32(&self, addr: *mut c_void) -> Result<i32, DWORD> {
+        let buf: [u8; 4] = self.read_const(addr)?;
+        Ok(i32::from_le_bytes(buf))
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_i64(&self, addr: *mut c_void) -> Result<i64, DWORD> {
+        let buf: [u8; 8] = self.read_const(addr)?;
+        Ok(i64::from_le_bytes(buf))
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u32(&self, addr: *mut c_void) -> Result<u32, DWORD> {
+        let buf: [u8; 4] = self.read_const(addr)?;
+        Ok(u32::from_le_bytes(buf))
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u64(&self, addr: *mut c_void) -> Result<u64, DWORD> {
+        let buf: [u8; 8] = self.read_const(addr)?;
+        Ok(u64::from_le_bytes(buf))
+    }
+
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_const<const N: usize>(&self, addr: *mut c_void) -> Result<[u8; N], DWORD> {
         let mut buf = [0; N];
 
-        if self.read(addr, buf.as_mut_ptr() as _, N)? == 0
-        {
+        if self.read(addr, buf.as_mut_ptr() as _, N)? == 0 {
             return Err(GetLastError());
         }
         Ok(buf)
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn read(&self, addr: *mut c_void, buf: *mut c_void, buf_size: usize) -> Result<usize, DWORD> {
+    pub unsafe fn read(
+        &self,
+        addr: *mut c_void,
+        buf: *mut c_void,
+        buf_size: usize,
+    ) -> Result<usize, DWORD> {
         let mut read = 0;
 
-        if ReadProcessMemory(
-            self.h_process,
-            addr,
-            buf,
-            buf_size,
-            &mut read,
-        ) == 0
-        {
+        if ReadProcessMemory(self.h_process, addr, buf, buf_size, &mut read) == 0 {
             return Err(GetLastError());
         }
         Ok(read)
     }
-    
+
     /// Dereferences a multi-level pointer.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn deref_chain<const N: usize>(
         &self,
         base: usize,
         offsets: [usize; N],
-    ) -> Result<*mut c_void, DWORD>
-    {
+    ) -> Result<*mut c_void, DWORD> {
         let mut addr = self.base.add(base);
         let mut tmp = 0;
 
@@ -72,7 +98,7 @@ impl Allocation {
             {
                 return Err(GetLastError());
             }
-            
+
             addr = (offset + tmp) as *mut _;
 
             if ReadProcessMemory(
@@ -144,7 +170,7 @@ impl Allocation {
 
     /// Fully writes the given data to this allocation in buffers of `buf_size`, else returns an
     /// [Err] containing the last OS error.
-    /// 
+    ///
     /// Was designed for large write operations.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_all_bytes_buffered(
@@ -157,7 +183,7 @@ impl Allocation {
 
     /// Fully writes the given data to this allocation, (offset by the `offset` parameter), in
     /// buffers of `buf_size`, else returns an [Err] containing the last OS error.
-    /// 
+    ///
     /// Was designed for large write operations.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_all_bytes_buffered_offset(
@@ -193,21 +219,18 @@ impl Allocation {
     ) -> Result<usize, DWORD> {
         let mut written = 0;
 
-        if WriteProcessMemory(
-            self.h_process,
-            addr,
-            data,
-            data_size,
-            &mut written,
-        ) == 0
-        {
+        if WriteProcessMemory(self.h_process, addr, data, data_size, &mut written) == 0 {
             return Err(GetLastError());
         }
         Ok(written)
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn write_at_base(&self, data: *mut c_void, data_size: usize) -> Result<usize, DWORD> {
+    pub unsafe fn write_at_base(
+        &self,
+        data: *mut c_void,
+        data_size: usize,
+    ) -> Result<usize, DWORD> {
         self.write_offset(0, data, data_size)
     }
 
@@ -218,11 +241,7 @@ impl Allocation {
         data: *mut c_void,
         data_size: usize,
     ) -> Result<usize, DWORD> {
-        self.write(
-            self.base.add(offset),
-            data,
-            data_size,
-        )
+        self.write(self.base.add(offset), data, data_size)
     }
 
     pub const fn inner(&self) -> *mut c_void {
