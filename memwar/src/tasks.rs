@@ -43,12 +43,12 @@ impl Default for UpdateSettings {
     }
 }
 
-pub struct WriteTask<const B: usize> {
+pub struct WriteTask {
     send: Sender<bool>,
     is_enabled: bool,
 }
 
-impl<const B: usize> WriteTask<B> {
+impl WriteTask {
     pub fn set_enabled(&mut self, enabled: bool) -> Result<(), SendError<bool>> {
         self.is_enabled = enabled;
         self.send.send(enabled)
