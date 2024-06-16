@@ -2,6 +2,7 @@
 members = [
 #    "examples/notepad",
     "memwar",
+    "examples/a-salt-cube"
 #    "memwar-inject",
 #    "memwar-loader",
 #    "memwar-payload"

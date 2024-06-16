@@ -1,0 +1,9 @@
+[package]
+name = "a-salt-cube"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+memwar = { git = "https://github.com/imajindevon/memwar" }
+anyhow = "1.0.86"
+cnsl = "0.1.3"

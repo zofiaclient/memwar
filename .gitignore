@@ -4,9 +4,10 @@
 **/target/
 **/.idea/
 
+memwar.zip
+
 # Until properly tested..
 
 memwar-inject/
 memwar-payload/
 memwar-loader/
-examples/
