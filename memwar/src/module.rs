@@ -21,7 +21,7 @@ pub unsafe fn get_mod_base(pid: u32, mod_name: &str) -> *mut c_void {
     }
 
     let mut mod_entry: MODULEENTRY32 = mem::zeroed();
-    mod_entry.dwSize = mem::size_of_val(&mod_entry) as _;
+    mod_entry.dwSize = size_of_val(&mod_entry) as _;
 
     if Module32First(h_snap, &mut mod_entry) > 0 {
         loop {

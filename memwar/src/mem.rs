@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::fmt::{Debug, Formatter};
+use std::fmt;
 use std::ptr::{addr_of_mut, null_mut};
-use std::{fmt, mem};
 
 use winapi::shared::minwindef::DWORD;
 use winapi::um::errhandlingapi::GetLastError;
@@ -51,6 +51,12 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_i16(&self, addr: *mut c_void) -> Result<i16, DWORD> {
+        let buf: [u8; 2] = self.read_const(addr)?;
+        Ok(i16::from_le_bytes(buf))
+    }
+    
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_i32(&self, addr: *mut c_void) -> Result<i32, DWORD> {
         let buf: [u8; 4] = self.read_const(addr)?;
         Ok(i32::from_le_bytes(buf))
@@ -63,6 +69,18 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u8(&self, addr: *mut c_void) -> Result<u8, DWORD> {
+        let buf: [u8; 1] = self.read_const(addr)?;
+        Ok(buf[0])
+    }
+    
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u16(&self, addr: *mut c_void) -> Result<u16, DWORD> {
+        let buf: [u8; 2] = self.read_const(addr)?;
+        Ok(u16::from_le_bytes(buf))
+    }
+    
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_u32(&self, addr: *mut c_void) -> Result<u32, DWORD> {
         let buf: [u8; 4] = self.read_const(addr)?;
         Ok(u32::from_le_bytes(buf))
@@ -74,6 +92,12 @@ impl Allocation {
         Ok(u64::from_le_bytes(buf))
     }
 
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u128(&self, addr: *mut c_void) -> Result<u128, DWORD> {
+        let buf: [u8; 16] = self.read_const(addr)?;
+        Ok(u128::from_le_bytes(buf))
+    }
+    
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_const<const N: usize>(&self, addr: *mut c_void) -> Result<[u8; N], DWORD> {
         let mut buf = [0; N];
@@ -115,7 +139,7 @@ impl Allocation {
                     self.h_process,
                     addr,
                     addr_of_mut!(tmp) as _,
-                    mem::size_of::<usize>(),
+                    size_of::<usize>(),
                     null_mut(),
                 ) == 0
             {
@@ -128,7 +152,7 @@ impl Allocation {
                 self.h_process,
                 addr as *mut _,
                 addr_of_mut!(tmp) as _,
-                mem::size_of::<usize>(),
+                size_of::<usize>(),
                 null_mut(),
             ) == 0
             {
