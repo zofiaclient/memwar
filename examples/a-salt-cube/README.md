@@ -33,7 +33,7 @@ So, let's run another scan after taking some damage from a bot friend.
 One result! Wow, that was quick. For larger games, you will encounter more addresses finding pointers this way, and it
 may be of use then to look into tools designed for reversing game data.
 
-Let's click on our address and head down the red arrow to save it in our address list.
+Let's click on our address and head down to the red arrow to save it in our address list.
 After we have found our address(es), we need to run a pointer scan to see what points to our health address.
 
 Right-click on the address from the address table and press `Pointer scan for this address`, then simply press ok in the
@@ -44,7 +44,7 @@ matter as we're going to automatically sort the offsets.
 
 Click on each offset category to sort to the pointer with the least amount and smallest of offsets.
 We're going to want to look for a module we can read from, followed by a small series of offsets. For AssaultCube, I
-found the health pointer to be at `"ac_client.exe"+0017E0A8 [0x0, 0xEC]`
+found the health pointer to be at `"ac_client.exe"+0017E0A8 [0xEC]`
 
 I guess I never explained what a pointer, an address, or an offset really is.
 
