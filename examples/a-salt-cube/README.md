@@ -101,9 +101,6 @@ anyhow = "1.0.86"
 cnsl = "0.1.3"
 ```
 
-If you are from UnknownCheats, you can download library's source code
-[here](https://www.unknowncheats.me/forum/downloads.php?do=file&id=45553).
-
 ## Writing the main function
 
 We outlined our program logic previously, but now we need to outline the
@@ -127,9 +124,9 @@ use memwar::process;
 use anyhow::{anyhow, Result};
 
 unsafe fn run() -> Result<()> {
-    let (wpinf, _) = process::get_process_by_name("AssaultCube.exe")
+    let wpinf = process::get_process_by_name("ac_client.exe")
         .map_err(|e| anyhow!("Failed to get window! OS error: {e}"))?
-        .ok_or_else(|| anyhow!("Failed to find AssaultCube.exe!"))?;
+        .ok_or_else(|| anyhow!("Failed to find ac_client.exe!"))?;
     
     let h_process = process::open_process_handle(wpinf.pid())
         .map_err(|e| anyhow!("Failed to open a handle to AssaultCube.exe! OS error: {e}"))?;
@@ -159,11 +156,10 @@ After fixing our code, we can see the program returns without an error.
 
 ## Writing our `tasks.rs` module
 
-Create a module named `tasks.rs`.
-Our tasks module will contain the following structs:
+NOTE: As of memwar v0.1.1, a Task structure is available for you to develop your cheat thread around.
 
-- Tasks - will store all of our cheat tasks
-- HealthTask - our cheat state and logic
+Create a module named `tasks.rs`.
+Our tasks module will contain a Tasks struct that will hold all of our tasks.
 
 NOTE: AssaultCube is a 32-bit process. Our following logic will contain code that will NOT work if you build to a
 64-bit target. To fix this, append this option to your Cargo build command to compile to a 32-bit target:
@@ -175,57 +171,22 @@ is also a decent exercise to get you familiar with threads.
 ```rust
 // tasks.rs
 
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{Receiver, Sender, SendError};
-
-use memwar::mem::SendAlloc;
-
-pub struct HealthTask {
-    // Should the health be actively modified by the cheat?
-    is_enabled: Arc<AtomicBool>,
-    
-    // Sender is our way of sending the health value from the main thread to the cheat thread.
-    health_sender: Sender<u32>,
-    
-    // If any errors occur, we're going to read them through this Receiver.
-    error_receiver: Receiver<u32>
-}
-
-impl HealthTask {
-    pub fn set_health(&self, new_health: u32) -> Result<(), SendError<u32>> {
-        self.health_sender.send(new_health)
-    }
-
-    pub fn toggle_enabled(&self) {
-        self.is_enabled.store(!self.is_enabled.load(Ordering::Relaxed), Ordering::Relaxed)
-    }
-
-    pub fn read_error(&self) -> Result<Option<u32>, TryRecvError> {
-        match self.error_receiver.try_recv() {
-            Ok(error) => Ok(Some(error)),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => Err(TryRecvError::Disconnected)
-        }
-    }
-
-    unsafe fn from_alloc(alloc: SendAlloc) -> Self {
-        todo!()
-    }
+unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
+    todo!()
 }
 
 pub struct Tasks {
-    health_task: HealthTask,
+    health_task: Task<i32, u32>,
 }
 
 impl Tasks {
-    pub fn health_task(&self) -> &HealthTask {
+    pub fn health_task(&self) -> &Task<i32, u32> {
         &self.health_task
     }
 
     pub unsafe fn from_alloc(alloc: SendAlloc) -> Self {
         Self {
-            health_task: HealthTask::from_alloc(alloc),
+            health_task: new_health_task(alloc),
         }
     }
 }
@@ -246,17 +207,18 @@ address `0017E0A8` gave us our local player address, which we can take advantage
 
 pub const LOCAL_PLAYER: usize = 0x0017E0A8;
 
+/// Value type: i32
 pub const OFFS_LOCAL_PLAYER_HEALTH: [usize; 1] = [0xEC];
 ```
 
-## Finishing `HealthTask::from_alloc`
+## Finishing `new_health_task`
 
 For this approach I used a `Sender<u32>` and `Receiver<u32>` to send and receive the health value across threads.
 I also used a `Sender<u32>` and `Receiver<u32>` to send and receive errors that occurred in the thread. This will be
 useful for debugging broken pointers and operations.
 
 ```rust
-unsafe fn from_alloc(alloc: SendAlloc) -> Self {
+unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
     let (health_sender, health_receiver) = mpsc::channel();
     let (error_sender, error_receiver) = mpsc::channel();
     todo!()
@@ -266,7 +228,7 @@ unsafe fn from_alloc(alloc: SendAlloc) -> Self {
 We use an `AtomicBool` to modify and read if the cheat is enabled.
 
 ```rust
-unsafe fn from_alloc(alloc: SendAlloc) -> Self {
+unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
     // ...
     let is_enabled = Arc::<AtomicBool>::default();
     let is_enabled_sent = is_enabled.clone();
@@ -277,7 +239,7 @@ unsafe fn from_alloc(alloc: SendAlloc) -> Self {
 We need to check if our cheat is loaded, or if a new modified health value has been sent from the CLI.
 
 ```rust
-unsafe fn from_alloc(alloc: SendAlloc) -> Self {
+unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
     // ...
     thread::spawn(move || {
         let mut health = None;
@@ -310,7 +272,7 @@ unsafe fn from_alloc(alloc: SendAlloc) -> Self {
 Finally, if the cheat is enabled, we can write our modified health value.
 
 ```rust
-unsafe fn from_alloc(alloc: SendAlloc) -> Self {
+unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
     // ...
     thread::spawn(move || {
         let mut health = None;
@@ -319,11 +281,10 @@ unsafe fn from_alloc(alloc: SendAlloc) -> Self {
             // ...
 
             if let Some(health) = health {
-                // alloc operates at the base address of ac_client.exe
                 let alloc = Allocation::from(alloc);
-                
+
                 let p_health = match alloc
-                    .deref_chain(pointers::LOCAL_PLAYER, pointers::OFFS_LOCAL_PLAYER_HEALTH)
+                    .deref_chain_with_base(pointers::LOCAL_PLAYER as _, pointers::OFFS_LOCAL_PLAYER_HEALTH)
                 {
                     Ok(v) => v,
                     Err(e) => {
@@ -332,17 +293,13 @@ unsafe fn from_alloc(alloc: SendAlloc) -> Self {
                     }
                 };
 
-                if let Err(err) = alloc.write_u32(p_health, health) {
+                if let Err(err) = alloc.write_i32(p_health, health) {
                     let _ = error_sender.send(err);
                 }
             }
         }
     });
-    Self {
-        is_enabled,
-        health_sender,
-        error_receiver,
-    }
+    Task::new(health_sender, is_enabled, error_receiver)
 }
 ```
 
@@ -352,14 +309,17 @@ Now that we have the main cheat logic out of the way, we will revisit our main f
 interface for our cheat user, along with getting the base address of `ac_client.exe`.
 
 ```rust
+// main.rs
+
 use anyhow::bail;
 
 unsafe fn run() -> Result<()> {
     // ...
-    let p_base = module::get_mod_base(wpinf.pid(), "ac_client.exe");
+    let p_base = module::get_mod_base(wpinf.pid(), "ac_client.exe")
+        .map_err(|e| anyhow!("Failed to create snapshot of process! OS error: {e}"))?;
 
     if p_base.is_null() {
-        bail!("Could not get ac_client.exe module base address!")
+        bail!("Failed to find ac_client.exe module!")
     }
 
     let alloc = SendAlloc::new(CVoidPtr(h_process), CVoidPtr(p_base));
@@ -372,39 +332,45 @@ unsafe fn run() -> Result<()> {
 Our CLI function should look something like this, but adjust it to your taste:
 
 ```rust
+// main.rs
+
 unsafe fn cli(tasks: Tasks) -> Result<()> {
     println!("Type help to get a list of commands");
-    
+
     loop {
         let input = readln!("$ ");
         let trim = input.trim();
-        
+
         if trim == "help" {
             println!("help\ntoggle_health");
             println!("health");
-            println!(" \\ value: u32")
+            println!(" \\ value: i32")
         }
-        
+
         if trim == "toggle_health" {
             tasks.health_task().toggle_enabled();
         }
-        
+
         if trim == "health" {
             println!("New health value:");
-            
+
             let health = loop {
                 let health_value = readln!("$ ");
-                
+
                 match health_value.parse() {
                     Ok(v) => break v,
                     Err(e) => eprintln!("{e}"),
                 }
             };
-            
-            tasks.health_task().set_health(health)?;
-            
-            if let Some(err) = tasks.health_task().read_error()? {
-                eprintln!("Thread raised error {err}")
+
+            tasks.health_task().send_data(health)?;
+
+            match tasks.health_task().read_error() {
+                Ok(err) => {
+                    eprintln!("Thread raised error {err}")
+                }
+                Err(TryRecvError::Empty) => (),
+                Err(TryRecvError::Disconnected) => bail!("Thread disconnected! Aborting.")
             }
         }
     }

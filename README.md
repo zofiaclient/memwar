@@ -1,12 +1,16 @@
 # Memory hacking library in Rust
 
+## Latest breaking changes
+
+- Rename `memwar::mem::Allocation::deref_chain` to `memwar::mem::Allocation::deref_chain_with_base`
+
 ## Example usage
 
 ```toml
 # Cargo.toml
 
 [dependencies]
-memwar = { git = "https://github.com/ImajinDevon/memwar.git" }
+memwar = { git = "https://github.com/zofiaclient/memwar", package = "memwar" }
 ```
 
 ```rust
@@ -45,3 +49,7 @@ fn sandbox() -> Result<()> {
         .map_err(|e| anyhow!("Failed to read from Game.exe! Last OS error: {e}"))?;
 }
 ```
+
+## Planned features
+
+- Manual mapping of payload DLLs

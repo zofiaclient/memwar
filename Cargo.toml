@@ -1,9 +1,10 @@
 [workspace]
 members = [
-#    "examples/notepad",
     "memwar",
-    "examples/a-salt-cube"
-#    "memwar-inject",
-#    "memwar-loader",
-#    "memwar-payload"
+    #"memwar-inject",
+    #"memwar-loader",
+    #"memwar-payload",
+    "examples/a-salt-cube",
+    "examples/assaultcube-aimbot",
+    #"examples/assaultcube-payload"
 ]

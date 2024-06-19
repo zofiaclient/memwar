@@ -3,6 +3,11 @@ use std::ffi::c_void;
 use std::mem;
 
 use derive_more::{Display, Error};
+#[cfg(target_pointer_width = "64")]
+use winapi::um::winnt::IMAGE_FILE_MACHINE_AMD64;
+#[cfg(target_pointer_width = "32")]
+use winapi::um::winnt::IMAGE_FILE_MACHINE_I386;
+#[allow(unused_imports)]
 use winapi::um::winnt::{
     IMAGE_DOS_SIGNATURE, IMAGE_NT_HEADERS, IMAGE_NT_SIGNATURE, PIMAGE_DOS_HEADER,
     PIMAGE_NT_HEADERS, PIMAGE_SECTION_HEADER,
@@ -18,6 +23,9 @@ pub enum InvalidDllReason {
 
     #[display("Invalid logical file address! (e_lfanew)")]
     LogicalFileAddress,
+
+    #[display("Invalid platform! Try running in {recommended_platform}-bit mode.")]
+    WrongPlatform { recommended_platform: usize },
 }
 
 #[derive(Debug)]
@@ -66,6 +74,7 @@ pub struct Dll<'a> {
 }
 
 impl<'a> Dll<'a> {
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn nt_headers(&self) -> IMAGE_NT_HEADERS {
         *self.p_nt_headers
     }
@@ -78,6 +87,7 @@ impl<'a> Dll<'a> {
         &self.sections
     }
 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn try_parse(data: &[u8]) -> Result<Self, InvalidDllReason> {
         let (_, p_nt_headers) = get_headers(data)?;
         let sections = get_sections(p_nt_headers);
@@ -138,5 +148,20 @@ pub unsafe fn get_headers(
     if (*p_nt_header).Signature != IMAGE_NT_SIGNATURE {
         return Err(InvalidDllReason::NtHeaders);
     }
+
+    #[cfg(target_pointer_width = "64")]
+    if (*p_nt_header).FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64 {
+        return Err(InvalidDllReason::WrongPlatform {
+            recommended_platform: 32,
+        });
+    }
+
+    #[cfg(target_pointer_width = "32")]
+    if (*p_nt_header).FileHeader.Machine != IMAGE_FILE_MACHINE_I386 {
+        return Err(InvalidDllReason::WrongPlatform {
+            recommended_platform: 64,
+        });
+    }
+
     Ok((p_dos_header, p_nt_header))
 }

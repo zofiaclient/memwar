@@ -1,18 +1,81 @@
 use std::ffi::c_void;
-use std::fmt::{Debug, Formatter};
 use std::fmt;
+use std::fmt::{Debug, Formatter};
+use std::ops::{Add, Sub};
 use std::ptr::{addr_of_mut, null_mut};
 
 use winapi::shared::minwindef::DWORD;
 use winapi::um::errhandlingapi::GetLastError;
-use winapi::um::memoryapi::{ReadProcessMemory, VirtualAllocEx, WriteProcessMemory};
-use winapi::um::winnt::{HANDLE, MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE};
+use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+use winapi::um::memoryapi::{
+    ReadProcessMemory, VirtualAlloc, VirtualAllocEx, VirtualFree, VirtualFreeEx, WriteProcessMemory,
+};
+use winapi::um::processthreadsapi::GetCurrentProcess;
+use winapi::um::winnt::{HANDLE, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_EXECUTE_READWRITE};
 
 /// Required wrapper struct for sharing pointers between threads.
 #[derive(Copy, Clone)]
 pub struct CVoidPtr(pub *mut c_void);
 
 unsafe impl Send for CVoidPtr {}
+
+#[derive(Debug, Clone)]
+pub struct Vector2(pub f32, pub f32);
+
+impl Vector2 {
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_from(base: *mut c_void, alloc: &Allocation) -> Result<Self, u32> {
+        Ok(Self(alloc.read_f32(base)?, alloc.read_f32(base.add(4))?))
+    }
+
+    pub fn len(&self) -> f32 {
+        (self.0.powf(2.0) + self.1.powf(2.0)).sqrt()
+    }
+
+    pub fn as_normalized(&self) -> Self {
+        let len = self.len();
+        Self(self.0 / len, self.1 / len)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Vector3(pub f32, pub f32, pub f32);
+
+impl Vector3 {
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_from(base: *mut c_void, alloc: &Allocation) -> Result<Self, u32> {
+        Ok(Self(
+            alloc.read_f32(base)?,
+            alloc.read_f32(base.add(4))?,
+            alloc.read_f32(base.add(8))?,
+        ))
+    }
+
+    pub fn len(&self) -> f32 {
+        (self.0.powf(2.0) + self.1.powf(2.0) + self.2.powf(2.0)).sqrt()
+    }
+
+    pub fn as_normalized(&self) -> Self {
+        let len = self.len();
+        Self(self.0 / len, self.1 / len, self.2 / len)
+    }
+}
+
+impl Sub for Vector3 {
+    type Output = Vector3;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2)
+    }
+}
+
+impl Add for Vector3 {
+    type Output = Vector3;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
+    }
+}
 
 /// Required wrapper struct for sending [Allocation]s across threads.
 #[derive(Clone, Copy)]
@@ -38,66 +101,95 @@ pub struct Allocation {
 }
 
 impl Allocation {
+    /// Frees this remote allocation and consumes self.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn free_remote(self) -> Result<(), DWORD> {
+        if VirtualFreeEx(self.h_process, self.base, 0, MEM_RELEASE) == 0 {
+            return Err(GetLastError());
+        }
+        Ok(())
+    }
+
+    /// Frees this allocation and consumes self.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn free(self) -> Result<(), DWORD> {
+        if VirtualFree(self.base, 0, MEM_RELEASE) == 0 {
+            return Err(GetLastError());
+        }
+        Ok(())
+    }
+
+    /// Reads a [f32] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_f32(&self, addr: *mut c_void) -> Result<f32, DWORD> {
         let buf: [u8; 4] = self.read_const(addr)?;
         Ok(f32::from_le_bytes(buf))
     }
 
+    /// Reads a [f64] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_f64(&self, addr: *mut c_void) -> Result<f64, DWORD> {
         let buf: [u8; 8] = self.read_const(addr)?;
         Ok(f64::from_le_bytes(buf))
     }
 
+    /// Reads an [i16] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_i16(&self, addr: *mut c_void) -> Result<i16, DWORD> {
         let buf: [u8; 2] = self.read_const(addr)?;
         Ok(i16::from_le_bytes(buf))
     }
-    
+
+    /// Reads an [i32] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_i32(&self, addr: *mut c_void) -> Result<i32, DWORD> {
         let buf: [u8; 4] = self.read_const(addr)?;
         Ok(i32::from_le_bytes(buf))
     }
 
+    /// Reads an [i64] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_i64(&self, addr: *mut c_void) -> Result<i64, DWORD> {
         let buf: [u8; 8] = self.read_const(addr)?;
         Ok(i64::from_le_bytes(buf))
     }
 
+    /// Reads an [u8] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_u8(&self, addr: *mut c_void) -> Result<u8, DWORD> {
         let buf: [u8; 1] = self.read_const(addr)?;
         Ok(buf[0])
     }
-    
+
+    /// Reads an [u16] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_u16(&self, addr: *mut c_void) -> Result<u16, DWORD> {
         let buf: [u8; 2] = self.read_const(addr)?;
         Ok(u16::from_le_bytes(buf))
     }
-    
+
+    /// Reads an [u32] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_u32(&self, addr: *mut c_void) -> Result<u32, DWORD> {
         let buf: [u8; 4] = self.read_const(addr)?;
         Ok(u32::from_le_bytes(buf))
     }
 
+    /// Reads an [u64] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_u64(&self, addr: *mut c_void) -> Result<u64, DWORD> {
         let buf: [u8; 8] = self.read_const(addr)?;
         Ok(u64::from_le_bytes(buf))
     }
 
+    /// Reads an [u128] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_u128(&self, addr: *mut c_void) -> Result<u128, DWORD> {
         let buf: [u8; 16] = self.read_const(addr)?;
         Ok(u128::from_le_bytes(buf))
     }
-    
+
+    /// Reads a constant amount of bytes into an array from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_const<const N: usize>(&self, addr: *mut c_void) -> Result<[u8; N], DWORD> {
         let mut buf = [0; N];
@@ -108,6 +200,7 @@ impl Allocation {
         Ok(buf)
     }
 
+    /// Reads `buf_size` at the given address into the provided buffer.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read(
         &self,
@@ -125,12 +218,22 @@ impl Allocation {
 
     /// Dereferences a multi-level pointer.
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn deref_chain<const N: usize>(
+    pub unsafe fn deref_chain_with_base<const N: usize>(
         &self,
-        base: usize,
+        base: *mut c_void,
         offsets: [usize; N],
     ) -> Result<*mut c_void, DWORD> {
-        let mut addr = self.base.add(base);
+        self.deref_chain(base.add(self.base as _), offsets)
+    }
+
+    /// Dereferences a multi-level pointer.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn deref_chain<const N: usize>(
+        &self,
+        base: *mut c_void,
+        offsets: [usize; N],
+    ) -> Result<*mut c_void, DWORD> {
+        let mut addr = base;
         let mut tmp = 0;
 
         for (i, offset) in offsets.iter().enumerate() {
@@ -150,7 +253,7 @@ impl Allocation {
 
             if ReadProcessMemory(
                 self.h_process,
-                addr as *mut _,
+                addr,
                 addr_of_mut!(tmp) as _,
                 size_of::<usize>(),
                 null_mut(),
@@ -347,6 +450,28 @@ impl Allocation {
     ) -> Result<Self, DWORD> {
         let base = VirtualAllocEx(
             h_process,
+            base_addr,
+            size,
+            MEM_COMMIT | MEM_RESERVE,
+            PAGE_EXECUTE_READWRITE,
+        );
+
+        if base.is_null() {
+            return Err(GetLastError());
+        }
+        Ok(Self::existing(h_process, base))
+    }
+
+    /// Allocates memory in the current process at the specified base address.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn alloc(base_addr: *mut c_void, size: usize) -> Result<Self, DWORD> {
+        let h_process = GetCurrentProcess();
+
+        if h_process == INVALID_HANDLE_VALUE {
+            return Err(GetLastError());
+        }
+
+        let base = VirtualAlloc(
             base_addr,
             size,
             MEM_COMMIT | MEM_RESERVE,

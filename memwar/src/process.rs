@@ -99,16 +99,13 @@ pub unsafe fn find_wpinf_from_pid(pid: u32) -> Result<WindowedProcessInformation
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn get_process_by_name(
     process_name: &str,
-) -> Result<Option<(WindowedProcessInformation, String)>, DWORD> {
+) -> Result<Option<WindowedProcessInformation>, DWORD> {
     let sys = System::new_all();
     let lower = process_name.to_lowercase();
 
     for (pid, process) in sys.processes() {
         if process.name().to_lowercase() == lower {
-            return Ok(Some((
-                find_wpinf_from_pid(pid.as_u32())?,
-                process.name().to_string(),
-            )));
+            return Ok(Some(find_wpinf_from_pid(pid.as_u32())?));
         }
     }
     Ok(None)

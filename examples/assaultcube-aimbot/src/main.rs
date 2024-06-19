@@ -1,14 +1,25 @@
-mod pointers;
-mod tasks;
-
 use std::sync::mpsc::TryRecvError;
 
 use anyhow::{anyhow, bail, Result};
 use cnsl::readln;
 use memwar::mem::{CVoidPtr, SendAlloc};
 use memwar::{module, process};
+use memwar::tasks::Task;
 
 use crate::tasks::Tasks;
+
+mod entity;
+mod pointers;
+mod tasks;
+
+fn handle_thread_error<T>(task: &Task<T, (u32, usize)>) -> Result<()> {
+    match task.read_error() {
+        Ok(v) => eprintln!("Aimbot returned error {}, status {}", v.0, v.1),
+        Err(TryRecvError::Empty) => (),
+        Err(TryRecvError::Disconnected) => bail!("Aimbot thread disconnected! Aborting."),
+    }
+    Ok(())
+}
 
 unsafe fn cli(tasks: Tasks) -> Result<()> {
     println!("Type help to get a list of commands");
@@ -18,36 +29,12 @@ unsafe fn cli(tasks: Tasks) -> Result<()> {
         let trim = input.trim();
 
         if trim == "help" {
-            println!("help\ntoggle_health");
-            println!("health");
-            println!(" \\ value: i32")
+            println!("help\ntoggle_aimbot\ntoggle_god");
         }
 
-        if trim == "toggle_health" {
-            tasks.health_task().toggle_enabled();
-        }
-
-        if trim == "health" {
-            println!("New health value:");
-
-            let health = loop {
-                let health_value = readln!("$ ");
-
-                match health_value.parse() {
-                    Ok(v) => break v,
-                    Err(e) => eprintln!("{e}"),
-                }
-            };
-
-            tasks.health_task().send_data(health)?;
-
-            match tasks.health_task().read_error() {
-                Ok(err) => {
-                    eprintln!("Thread raised error {err}")
-                }
-                Err(TryRecvError::Empty) => (),
-                Err(TryRecvError::Disconnected) => bail!("Thread disconnected! Aborting."),
-            }
+        if trim == "toggle_aimbot" {
+            tasks.aimbot_task().toggle_enabled();
+            handle_thread_error(tasks.aimbot_task())?;
         }
     }
 }
