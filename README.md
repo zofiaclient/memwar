@@ -41,7 +41,7 @@ fn sandbox() -> Result<()> {
     let alloc = Allocation::existing(h_process, base_addr);
     
     let player_speed_addr = alloc
-        .deref_chain(offsets::LOCAL_PLAYER, offsets::PLAYER_SPEED)
+        .deref_chain_with_base(offsets::LOCAL_PLAYER, offsets::PLAYER_SPEED)
         .map_err(|e| anyhow!("Failed to dereference pointer chain! Last OS error: {e}"))?;
 
     let player_speed = alloc
