@@ -77,9 +77,9 @@ unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> B
         enum_data
             .wpinf
             .write(WindowedProcessInformation::new(pid, tid, hwnd));
-        return 0;
+        return 1;
     }
-    1
+    0
 }
 
 #[allow(clippy::missing_safety_doc)]
@@ -88,8 +88,8 @@ pub unsafe fn find_wpinf_from_pid(pid: u32) -> Result<WindowedProcessInformation
 
     if EnumWindows(
         Some(enum_windows_callback),
-        &mut enum_data as *mut WindowEnumData as isize,
-    ) == 0
+        &mut enum_data as *mut WindowEnumData as _,
+    ) > 0
     {
         return Ok(enum_data.wpinf.assume_init());
     }

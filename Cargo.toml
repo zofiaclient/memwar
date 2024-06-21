@@ -6,5 +6,6 @@ members = [
     #"memwar-payload",
     "examples/a-salt-cube",
     "examples/assaultcube-aimbot",
-    #"examples/assaultcube-payload"
+    #"examples/hello-world-payload",
+    #"examples/assaultcube-health-payload"
 ]

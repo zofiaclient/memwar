@@ -154,6 +154,12 @@ impl Allocation {
         Ok(i64::from_le_bytes(buf))
     }
 
+    /// Reads a [bool] from the given address.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_bool(&self, addr: *mut c_void) -> Result<bool, DWORD> {
+        self.read_u8(addr).map(|v| v > 0)
+    }
+
     /// Reads an [u8] from the given address.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_u8(&self, addr: *mut c_void) -> Result<u8, DWORD> {
@@ -187,6 +193,13 @@ impl Allocation {
     pub unsafe fn read_u128(&self, addr: *mut c_void) -> Result<u128, DWORD> {
         let buf: [u8; 16] = self.read_const(addr)?;
         Ok(u128::from_le_bytes(buf))
+    }
+
+    /// Reads an [usize] from the given address.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_usize(&self, addr: *mut c_void) -> Result<usize, DWORD> {
+        let buf: [u8; size_of::<usize>()] = self.read_const(addr)?;
+        Ok(usize::from_le_bytes(buf))
     }
 
     /// Reads a constant amount of bytes into an array from the given address.
@@ -265,12 +278,18 @@ impl Allocation {
         Ok(addr)
     }
 
+    /// Reads an [u8] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u8_offset(&self, offset: usize) -> Result<u8, DWORD> {
+        let mut buf = [0; 1];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 1)?;
+        Ok(buf[0])
+    }
+
     /// Reads a [bool] at the given offset.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_bool_offset(&self, offset: usize) -> Result<bool, DWORD> {
-        let mut buf = [0; 1];
-        self.read_offset(offset, buf.as_mut_ptr() as _, 1)?;
-        Ok(buf[0] > 0)
+        self.read_u8_offset(offset).map(|v| v > 0)
     }
 
     /// Reads an [u32] at the given offset.
@@ -281,12 +300,84 @@ impl Allocation {
         Ok(u32::from_le_bytes(buf))
     }
 
+    /// Reads an [u64] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u64_offset(&self, offset: usize) -> Result<u64, DWORD> {
+        let mut buf = [0; 8];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 8)?;
+        Ok(u64::from_le_bytes(buf))
+    }
+
+    /// Reads an [u128] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_u128_offset(&self, offset: usize) -> Result<u128, DWORD> {
+        let mut buf = [0; 16];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 16)?;
+        Ok(u128::from_le_bytes(buf))
+    }
+
+    /// Reads an [usize] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_usize_offset(&self, offset: usize) -> Result<usize, DWORD> {
+        let mut buf = [0; size_of::<usize>()];
+        self.read_offset(offset, buf.as_mut_ptr() as _, size_of::<usize>())?;
+        Ok(usize::from_le_bytes(buf))
+    }
+
+    /// Reads a [i16] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_i16_offset(&self, offset: usize) -> Result<i16, DWORD> {
+        let mut buf = [0; 2];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 2)?;
+        Ok(i16::from_le_bytes(buf))
+    }
+
+    /// Reads a [i32] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_i32_offset(&self, offset: usize) -> Result<i32, DWORD> {
+        let mut buf = [0; 4];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 4)?;
+        Ok(i32::from_le_bytes(buf))
+    }
+
+    /// Reads a [i64] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_i64_offset(&self, offset: usize) -> Result<i64, DWORD> {
+        let mut buf = [0; 8];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 8)?;
+        Ok(i64::from_le_bytes(buf))
+    }
+
+    /// Reads a [i128] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_i128_offset(&self, offset: usize) -> Result<i128, DWORD> {
+        let mut buf = [0; 16];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 16)?;
+        Ok(i128::from_le_bytes(buf))
+    }
+
+    /// Reads a [isize] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_isize_offset(&self, offset: usize) -> Result<isize, DWORD> {
+        let mut buf = [0; size_of::<isize>()];
+        self.read_offset(offset, buf.as_mut_ptr() as _, size_of::<isize>())?;
+        Ok(isize::from_le_bytes(buf))
+    }
+
     /// Reads a [f32] at the given offset.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn read_f32_offset(&self, offset: usize) -> Result<f32, DWORD> {
         let mut buf = [0; 4];
         self.read_offset(offset, buf.as_mut_ptr() as _, 4)?;
         Ok(f32::from_le_bytes(buf))
+    }
+
+    /// Reads a [f64] at the given offset.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_f64_offset(&self, offset: usize) -> Result<f64, DWORD> {
+        let mut buf = [0; 8];
+        self.read_offset(offset, buf.as_mut_ptr() as _, 8)?;
+        Ok(f64::from_le_bytes(buf))
     }
 
     /// Reads the data into the given buffer.
@@ -376,8 +467,38 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_bool(&self, addr: *mut c_void, data: bool) -> Result<usize, DWORD> {
+        self.write_u8(addr, if data { 1 } else { 0 })
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u8(&self, addr: *mut c_void, data: u8) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 1)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u16(&self, addr: *mut c_void, data: u16) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 2)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_u32(&self, addr: *mut c_void, data: u32) -> Result<usize, DWORD> {
         self.write(addr, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u64(&self, addr: *mut c_void, data: u64) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 8)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u128(&self, addr: *mut c_void, data: u128) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 16)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_usize(&self, addr: *mut c_void, data: usize) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, size_of::<usize>())
     }
 
     #[allow(clippy::missing_safety_doc)]
@@ -386,13 +507,38 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_f64(&self, addr: *mut c_void, data: f64) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 8)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i8(&self, addr: *mut c_void, data: i8) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 1)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i16(&self, addr: *mut c_void, data: i16) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 2)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_i32(&self, addr: *mut c_void, data: i32) -> Result<usize, DWORD> {
         self.write(addr, data.to_le_bytes().as_ptr() as _, 4)
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn write_u16(&self, addr: *mut c_void, data: u16) -> Result<usize, DWORD> {
-        self.write(addr, data.to_le_bytes().as_ptr() as _, 2)
+    pub unsafe fn write_i64(&self, addr: *mut c_void, data: i64) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 8)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i128(&self, addr: *mut c_void, data: i128) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, 16)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_isize(&self, addr: *mut c_void, data: isize) -> Result<usize, DWORD> {
+        self.write(addr, data.to_le_bytes().as_ptr() as _, size_of::<isize>())
     }
 
     #[allow(clippy::missing_safety_doc)]
@@ -415,8 +561,38 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_bool_offset(&self, offset: usize, data: bool) -> Result<usize, DWORD> {
+        self.write_u8_offset(offset, if data { 1 } else { 0 })
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u8_offset(&self, offset: usize, data: u8) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 1)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u16_offset(&self, offset: usize, data: u16) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 2)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_u32_offset(&self, offset: usize, data: u32) -> Result<usize, DWORD> {
         self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u64_offset(&self, offset: usize, data: u64) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 8)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_u128_offset(&self, offset: usize, data: u128) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 16)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_usize_offset(&self, offset: usize, data: usize) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, size_of::<usize>())
     }
 
     #[allow(clippy::missing_safety_doc)]
@@ -425,8 +601,38 @@ impl Allocation {
     }
 
     #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_f64_offset(&self, offset: usize, data: f64) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 8)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i8_offset(&self, offset: usize, data: i8) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 1)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i16_offset(&self, offset: usize, data: i16) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 2)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_i32_offset(&self, offset: usize, data: i32) -> Result<usize, DWORD> {
         self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 4)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i64_offset(&self, offset: usize, data: i64) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 8)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_i128_offset(&self, offset: usize, data: i128) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, 16)
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn write_isize_offset(&self, offset: usize, data: isize) -> Result<usize, DWORD> {
+        self.write_offset(offset, data.to_le_bytes().as_ptr() as _, size_of::<isize>())
     }
 
     /// Returns a pointer to the base of this allocation.
@@ -499,7 +705,7 @@ impl From<SendAlloc> for Allocation {
     fn from(value: SendAlloc) -> Self {
         Self {
             h_process: value.h_process.0,
-            base: value.p_base().0,
+            base: value.p_base.0,
         }
     }
 }

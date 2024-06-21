@@ -3,8 +3,8 @@ use std::sync::mpsc::TryRecvError;
 use anyhow::{anyhow, bail, Result};
 use cnsl::readln;
 use memwar::mem::{CVoidPtr, SendAlloc};
-use memwar::{module, process};
 use memwar::tasks::Task;
+use memwar::{module, process};
 
 use crate::tasks::Tasks;
 
@@ -29,7 +29,7 @@ unsafe fn cli(tasks: Tasks) -> Result<()> {
         let trim = input.trim();
 
         if trim == "help" {
-            println!("help\ntoggle_aimbot\ntoggle_god");
+            println!("help\ntoggle_aimbot");
         }
 
         if trim == "toggle_aimbot" {

@@ -1,13 +1,12 @@
-use std::sync::{Arc, mpsc};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 use std::thread;
-
-use winapi::um::winuser::GetAsyncKeyState;
 
 use memwar::mem::{Allocation, SendAlloc};
 use memwar::tasks::Task;
+use winapi::um::winuser::GetAsyncKeyState;
 
-use crate::entity::Entity;
+use crate::entity::{Entity, LocalPlayer};
 
 unsafe fn new_aimbot_task(alloc: SendAlloc) -> Task<(), (u32, usize)> {
     let (sender, _) = mpsc::channel();
@@ -29,7 +28,7 @@ unsafe fn new_aimbot_task(alloc: SendAlloc) -> Task<(), (u32, usize)> {
                 continue;
             }
 
-            let local_player = match Entity::read_local_player(&alloc) {
+            let local_player = match LocalPlayer::read_from(&alloc) {
                 Ok(v) => v,
                 Err(e) => {
                     let _ = error_sender.send((e, 0));
@@ -47,14 +46,15 @@ unsafe fn new_aimbot_task(alloc: SendAlloc) -> Task<(), (u32, usize)> {
 
             let mut entities: Vec<_> = entities
                 .into_iter()
-                .filter(|e| e.is_alive() && e.is_blue_team() != local_player.is_blue_team())
+                .filter(|e| {
+                    e.health() > 0 && e.is_blue_team() != local_player.entity().is_blue_team()
+                })
                 .collect();
 
             entities.sort_by(|l, r| {
-                local_player
-                    .calc_distance(l)
-                    .partial_cmp(&local_player.calc_distance(r))
-                    .expect("Distances returned NAN!")
+                l.calc_distance(local_player.entity())
+                    .partial_cmp(&r.calc_distance(local_player.entity()))
+                    .expect("Distance returned NAN!")
             });
 
             if let Some(entity) = entities.first() {

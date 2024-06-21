@@ -6,7 +6,6 @@ use crate::pointers;
 
 #[derive(Debug)]
 pub struct Entity {
-    p_base: *mut c_void,
     health: i32,
     armor: i32,
     ammo: i32,
@@ -18,47 +17,11 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub unsafe fn aim_at(&self, dest: &Entity, alloc: &Allocation) -> Result<(), u32> {
-        let view_angles = self.calc_view_angles(dest);
-
-        alloc.write_f32(
-            self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE),
-            view_angles.0,
-        )?;
-        alloc.write_f32(
-            self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE + 4),
-            view_angles.1,
-        )?;
-        Ok(())
-    }
-
-    pub fn calc_view_angles(&self, dest: &Entity) -> Vector2 {
-        let delta_x = dest.head_position.0 - self.head_position.0;
-        let delta_y = dest.head_position.1 - self.head_position.1;
-        let delta_z = dest.head_position.2 - self.head_position.2;
-
-        let yaw = delta_y.atan2(delta_x).to_degrees() + 90.0;
-        let angle = (delta_z / delta_y).atan();
-        let mut pitch = angle.to_degrees();
-        
-        if angle >= 1.0 {
-            pitch -= 90.0;
-        }
-        if angle <= -1.0 {
-            pitch += 90.0;
-        }
-        Vector2(yaw, pitch)
-    }
-
     pub fn calc_distance(&self, dest: &Entity) -> f32 {
         (dest.head_position.0 - self.head_position.0).powf(2f32)
-            + (dest.head_position.1 - self.head_position.1).powf(2f32)
+            + (dest.head_position.1 - self.head_position.1)
+                .powf(2f32)
                 .sqrt()
-    }
-
-    pub unsafe fn read_local_player(alloc: &Allocation) -> Result<Self, u32> {
-        let p_local_player = alloc.read_u32(alloc.inner().add(pointers::LOCAL_PLAYER))?;
-        Self::read_from(p_local_player as _, alloc)
     }
 
     unsafe fn read_from(p_entity: *mut c_void, alloc: &Allocation) -> Result<Self, u32> {
@@ -78,7 +41,6 @@ impl Entity {
             Vector2::read_from(p_entity.add(pointers::OFFS_ENTITY_VIEW_ANGLE), alloc)?;
 
         Ok(Self {
-            p_base: p_entity,
             health,
             armor,
             ammo,
@@ -142,5 +104,49 @@ impl Entity {
 
     pub const fn is_blue_team(&self) -> bool {
         self.is_blue_team
+    }
+}
+
+pub struct LocalPlayer {
+    p_base: *mut c_void,
+    entity: Entity,
+}
+
+impl LocalPlayer {
+    fn calc_view_angles(&self, dest: &Entity) -> Vector2 {
+        let delta_x = dest.head_position.0 - self.entity.head_position.0;
+        let delta_y = dest.head_position.1 - self.entity.head_position.1;
+        let delta_z = dest.head_position.2 - self.entity.head_position.2;
+
+        let yaw = delta_y.atan2(delta_x).to_degrees() + 90.0;
+        let pitch = delta_z.atan2(delta_y);
+
+        Vector2(yaw, pitch)
+    }
+
+    pub unsafe fn aim_at(&self, dest: &Entity, alloc: &Allocation) -> Result<(), u32> {
+        let view_angles = self.calc_view_angles(dest);
+
+        alloc.write_f32(
+            self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE),
+            view_angles.0,
+        )?;
+        alloc.write_f32(
+            self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE + 4),
+            view_angles.1,
+        )?;
+        Ok(())
+    }
+
+    pub unsafe fn read_from(alloc: &Allocation) -> Result<Self, u32> {
+        let p_base = alloc.read_u32(alloc.inner().add(pointers::LOCAL_PLAYER))? as _;
+        Ok(Self {
+            p_base,
+            entity: Entity::read_from(p_base, alloc)?,
+        })
+    }
+
+    pub const fn entity(&self) -> &Entity {
+        &self.entity
     }
 }
