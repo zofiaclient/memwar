@@ -124,11 +124,11 @@ use memwar::process;
 use anyhow::{anyhow, Result};
 
 unsafe fn run() -> Result<()> {
-    let wpinf = process::get_process_by_name("ac_client.exe")
+    let pid = process::get_process_by_name("ac_client.exe")
         .map_err(|e| anyhow!("Failed to get window! OS error: {e}"))?
         .ok_or_else(|| anyhow!("Failed to find ac_client.exe!"))?;
     
-    let h_process = process::open_process_handle(wpinf.pid())
+    let h_process = process::open_process_handle(pid)
         .map_err(|e| anyhow!("Failed to open a handle to AssaultCube.exe! OS error: {e}"))?;
     
     Ok(())
@@ -315,7 +315,7 @@ use anyhow::bail;
 
 unsafe fn run() -> Result<()> {
     // ...
-    let p_base = module::get_mod_base(wpinf.pid(), "ac_client.exe")
+    let p_base = module::get_mod_base(pid, "ac_client.exe")
         .map_err(|e| anyhow!("Failed to create snapshot of process! OS error: {e}"))?;
 
     if p_base.is_null() {

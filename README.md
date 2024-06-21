@@ -17,20 +17,14 @@ memwar = { git = "https://github.com/zofiaclient/memwar", package = "memwar" }
 use anyhow::{Result, bail, anyhow};
 
 fn sandbox() -> Result<()> {
-    let wpinf = match process::get_process_by_name("Game.exe")
-        .map_err(|e| anyhow!("Failed to find Game.exe! Last OS error: {e}"))?
-    {
-        Some((wpinf, _)) => wpinf,
-        None => bail!(
-            "Failed to get window information! Last OS error: {}",
-            GetLastError()
-        ),
-    };
+    let pid = process::get_process_by_name("Game.exe")
+        .map_err(|e| anyhow!("Failed to get process information! Last OS error: {e}"))
+        .ok_or_else(|| anyhow!("Failed to find Game.exe!"))?;
 
-    let h_process = process::open_process_handle(wpinf.pid())
+    let h_process = process::open_process_handle(pid)
         .map_err(|e| anyhow!("Failed to open handle to Game.exe! Last OS error: {e}"))?;
 
-    let base_addr = module::get_mod_base(wpinf.pid(), "GameAssembly.dll");
+    let base_addr = module::get_mod_base(pid, "GameAssembly.dll");
 
     if base_addr.is_null() {
         bail!("Failed to get GameAssembly.dll base address!")

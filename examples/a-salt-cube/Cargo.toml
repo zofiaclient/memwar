@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-memwar = { git = "https://github.com/zofiaclient/memwar/", package = "memwar" }
+memwar = { path = "../../memwar" }
 anyhow = "1.0.86"
 cnsl = "0.1.3"
