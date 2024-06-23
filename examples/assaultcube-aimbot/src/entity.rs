@@ -18,9 +18,9 @@ pub struct Entity {
 
 impl Entity {
     pub fn calc_distance(&self, dest: &Entity) -> f32 {
-        (dest.head_position.0 - self.head_position.0).powf(2f32)
-            + (dest.head_position.1 - self.head_position.1)
-                .powf(2f32)
+        (dest.head_position.0 - self.head_position.0).powf(2.0)
+            + (dest.head_position.1 - self.head_position.1).powf(2.0)
+            + (dest.head_position.2 - self.head_position.2).powf(2.0)
                 .sqrt()
     }
 
@@ -117,10 +117,12 @@ impl LocalPlayer {
         let delta_x = dest.head_position.0 - self.entity.head_position.0;
         let delta_y = dest.head_position.1 - self.entity.head_position.1;
         let delta_z = dest.head_position.2 - self.entity.head_position.2;
-
+        
+        let magn = (delta_x.powf(2.0) + delta_y.powf(2.0) + delta_z.powf(2.0)).sqrt();
+        
         let yaw = delta_y.atan2(delta_x).to_degrees() + 90.0;
-        let pitch = delta_z.atan2(delta_y);
-
+        let pitch = (delta_z / magn).tan().to_degrees();
+        
         Vector2(yaw, pitch)
     }
 
