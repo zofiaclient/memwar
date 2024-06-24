@@ -38,6 +38,22 @@ impl Vector2 {
     }
 }
 
+impl Sub for Vector2 {
+    type Output = Vector2;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0, self.1 - rhs.1)
+    }
+}
+
+impl Add for Vector2 {
+    type Output = Vector2;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0, self.1 + rhs.1)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Vector3(pub f32, pub f32, pub f32);
 
