@@ -5,11 +5,11 @@ use std::thread;
 use std::time::Duration;
 
 use memwar::mem::{Allocation, SendAlloc};
-use memwar::tasks::Task;
+use memwar::tasks::SenderTask;
 
 use crate::pointers;
 
-unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
+unsafe fn new_health_task(alloc: SendAlloc) -> SenderTask<i32, u32> {
     let (health_sender, health_receiver) = mpsc::channel();
     let (error_sender, error_receiver) = mpsc::channel();
 
@@ -57,15 +57,15 @@ unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
             }
         }
     });
-    Task::new(health_sender, is_enabled, error_receiver)
+    SenderTask::new(health_sender, is_enabled, error_receiver)
 }
 
 pub struct Tasks {
-    health_task: Task<i32, u32>,
+    health_task: SenderTask<i32, u32>,
 }
 
 impl Tasks {
-    pub fn health_task(&self) -> &Task<i32, u32> {
+    pub fn health_task(&self) -> &SenderTask<i32, u32> {
         &self.health_task
     }
 

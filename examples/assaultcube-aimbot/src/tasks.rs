@@ -1,85 +1,92 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
+use std::time::Duration;
 
-use memwar::mem::{Allocation, SendAlloc};
-use memwar::tasks::Task;
+use memwar::tasks::ReceiverTask;
 use winapi::um::winuser::GetAsyncKeyState;
 
-use crate::entity::{Entity, LocalPlayer};
+use crate::entity::Entity;
+use crate::game::{GameData, GameManager};
 
-unsafe fn new_aimbot_task(alloc: SendAlloc) -> Task<(), (u32, usize)> {
-    let (sender, _) = mpsc::channel();
-    let (error_sender, error_receiver) = mpsc::channel();
+fn aimbot(game_manager: &GameManager, data: &GameData) -> Result<String, String> {
+    let local_player_entity = data.local_player().entity();
+
+    let mut entities: Vec<&Entity> = data
+        .entities()
+        .iter()
+        .filter(|e| e.health() > 0 && e.is_blue_team() != local_player_entity.is_blue_team())
+        .collect();
+
+    entities.sort_by(|l, r| {
+        local_player_entity
+            .calc_distance(l)
+            .partial_cmp(&local_player_entity.calc_distance(r))
+            .expect("Distance returned NAN!")
+    });
+
+    if let Some(entity) = entities.first() {
+        unsafe {
+            data.local_player()
+                .aim_at(entity, game_manager.ac_client_mod_alloc())?;
+
+            return Ok(entity.name_as_string());
+        }
+    }
+    Err("Found no entities.".to_string())
+}
+
+pub fn new_aimbot_task() -> ReceiverTask<String, String> {
+    let (sender, receiver) = mpsc::channel();
+    let (err_sender, err_receiver) = mpsc::channel();
 
     let is_enabled = Arc::<AtomicBool>::default();
     let is_enabled_sent = is_enabled.clone();
 
-    thread::spawn(move || {
-        let alloc = Allocation::from(alloc);
+    thread::spawn(move || unsafe {
+        let mut game_manager = GameManager::setup();
 
         loop {
+            thread::sleep(Duration::from_millis(50));
+
             if !is_enabled_sent.load(Ordering::Relaxed) {
                 continue;
             }
 
-            // F key.
             if GetAsyncKeyState(0x46) == 0 {
                 continue;
             }
 
-            let local_player = match LocalPlayer::read_from(&alloc) {
+            let game_manager = match &game_manager {
                 Ok(v) => v,
                 Err(e) => {
-                    let _ = error_sender.send((e, 0));
+                    let _ = err_sender.send(e.to_string());
+                    thread::sleep(Duration::from_secs(1));
+
+                    game_manager = GameManager::setup();
                     continue;
                 }
             };
 
-            let entities = match Entity::from_list(&alloc) {
+            let game_data = match GameData::read_from(game_manager.ac_client_mod_alloc()) {
                 Ok(v) => v,
                 Err(e) => {
-                    let _ = error_sender.send((e, 1));
+                    let _ = err_sender.send(e);
                     continue;
                 }
             };
 
-            let mut entities: Vec<_> = entities
-                .into_iter()
-                .filter(|e| {
-                    e.health() > 0 && e.is_blue_team() != local_player.entity().is_blue_team()
-                })
-                .collect();
-
-            entities.sort_by(|l, r| {
-                l.calc_distance(local_player.entity())
-                    .partial_cmp(&r.calc_distance(local_player.entity()))
-                    .expect("Distance returned NAN!")
-            });
-
-            if let Some(entity) = entities.first() {
-                if let Err(err) = local_player.aim_at(entity, &alloc) {
-                    let _ = error_sender.send((err, 2));
-                    continue;
+            match aimbot(game_manager, &game_data) {
+                Ok(entity_name) => {
+                    if let Err(err) = sender.send(entity_name) {
+                        let _ = err_sender.send(format!("Thread sender error: {err}"));
+                    }
+                }
+                Err(err) => {
+                    let _ = err_sender.send(err);
                 }
             }
         }
     });
-    Task::new(sender, is_enabled, error_receiver)
-}
-
-pub struct Tasks {
-    aimbot_task: Task<(), (u32, usize)>,
-}
-
-impl Tasks {
-    pub unsafe fn from_alloc(alloc: SendAlloc) -> Self {
-        Self {
-            aimbot_task: new_aimbot_task(alloc),
-        }
-    }
-
-    pub const fn aimbot_task(&self) -> &Task<(), (u32, usize)> {
-        &self.aimbot_task
-    }
+    ReceiverTask::new(receiver, is_enabled, err_receiver)
 }

@@ -19,11 +19,5 @@ pub const OFFS_ENTITY_TEAM: usize = 0x30C;
 /// Value type: Vector2
 pub const OFFS_ENTITY_VIEW_ANGLE: usize = 0x34;
 
-/// Value type: bool
-pub const OFFS_ENTITY_IS_ALIVE: usize = 0x104;
-
 /// Value type: i32
 pub const OFFS_ENTITY_HEALTH: usize = 0xEC;
-
-/// Value type: i32
-pub const OFFS_ENTITY_AMMO: usize = 0x140;

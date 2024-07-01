@@ -1,65 +1,187 @@
+#![windows_subsystem = "windows"]
+
 use std::sync::mpsc::TryRecvError;
 
-use anyhow::{anyhow, bail, Result};
-use cnsl::readln;
-use memwar::mem::{CVoidPtr, SendAlloc};
-use memwar::tasks::Task;
-use memwar::{module, process};
+use eframe::egui::{CentralPanel, Color32, RichText, ScrollArea, Ui};
+use eframe::emath::Vec2;
+use eframe::epaint::Shadow;
+use notan::app::{App, Graphics, Plugins};
+use notan::AppState;
+use notan::draw::DrawConfig;
+use notan::egui::{Button, EguiConfig, EguiPluginSugar, Frame, Margin, menu, Rounding, Stroke};
+use notan::prelude::WindowConfig;
 
-use crate::tasks::Tasks;
+use memwar::tasks::ReceiverTask;
 
 mod entity;
+mod game;
 mod pointers;
 mod tasks;
 
-fn handle_thread_error<T>(task: &Task<T, (u32, usize)>) -> Result<()> {
-    match task.read_error() {
-        Ok(v) => eprintln!("Aimbot returned error {}, status {}", v.0, v.1),
-        Err(TryRecvError::Empty) => (),
-        Err(TryRecvError::Disconnected) => bail!("Aimbot thread disconnected! Aborting."),
-    }
-    Ok(())
+const PALETTE_TEXT: Color32 = Color32::from_rgb(255, 82, 125);
+const PALETTE_BACKGROUND: Color32 = Color32::from_rgb(40, 20, 30);
+const PALETTE_DARK_BACKGROUND: Color32 = Color32::from_rgb(28, 13, 24);
+const PALETTE_IMPORTANT: Color32 = Color32::from_rgb(255, 0, 98);
+
+#[derive(Default)]
+struct AimbotConsole {
+    messages: Vec<String>,
 }
 
-unsafe fn cli(tasks: Tasks) -> Result<()> {
-    println!("Type help to get a list of commands");
+impl AimbotConsole {
+    fn to_ui(&self, ui: &mut Ui) {
+        let frame = Frame {
+            fill: PALETTE_BACKGROUND,
+            inner_margin: Margin::same(15.0),
+            stroke: Stroke::new(1.0, PALETTE_IMPORTANT),
+            rounding: Rounding::same(5.0),
+            shadow: Shadow::default(),
+            ..Default::default()
+        };
+        
+        frame.show(ui, |ui| {
+            ScrollArea::both().max_height(100.0).show(ui, |ui| {
+                ui.heading(RichText::new("Console Output").color(PALETTE_TEXT));
 
-    loop {
-        let input = readln!("$ ");
-        let trim = input.trim();
+                if self.messages.is_empty() {
+                    ui.label("Awaiting console output..");
+                }
+                
+                for message in &self.messages {
+                    ui.code(RichText::new(message).color(PALETTE_IMPORTANT));
+                }
+            });
+        });
+    }
 
-        if trim == "help" {
-            println!("help\ntoggle_aimbot");
+    fn add(&mut self, message: String) {
+        if self.messages.len() > 10 {
+            self.messages = Vec::new();
         }
+        self.messages.push(message);
+    }
+}
 
-        if trim == "toggle_aimbot" {
-            tasks.aimbot_task().toggle_enabled();
-            handle_thread_error(tasks.aimbot_task())?;
+#[derive(AppState)]
+struct State {
+    aimbot_task: ReceiverTask<String, String>,
+    console: AimbotConsole,
+}
+
+impl State {
+    fn new() -> Self {
+        Self {
+            aimbot_task: tasks::new_aimbot_task(),
+            console: AimbotConsole::default(),
         }
     }
 }
 
-unsafe fn run() -> Result<()> {
-    let pid = process::get_process_by_name("ac_client.exe")
-        .map_err(|e| anyhow!("Failed to get process information! OS error: {e}"))?
-        .ok_or_else(|| anyhow!("Failed to find ac_client.exe!"))?;
+fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut State) {
+    let frame = Frame {
+        fill: PALETTE_DARK_BACKGROUND,
+        inner_margin: Margin::same(15.0),
+        ..Default::default()
+    };
 
-    let h_process = process::open_process_handle(pid)
-        .map_err(|e| anyhow!("Failed to open a handle to AssaultCube.exe! OS error: {e}"))?;
+    let output = plugins.egui(|ctx| {
+        CentralPanel::default().frame(frame).show(ctx, |ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(30.0, 20.0);
+            ui.spacing_mut().button_padding = Vec2::new(15.0, 15.0);
+            
+            menu::bar(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    ui.menu_button("Quit", |ui| {
+                        ui.label("Do you really wish to quit?");
 
-    let p_base = module::get_mod_base(pid, "ac_client.exe")
-        .map_err(|e| anyhow!("Failed to create snapshot of process! OS error: {e}"))?;
+                        if ui.button("Confirm").clicked() {
+                            app.exit();
+                        }
+                        if ui.button("Cancel").clicked() {
+                            ui.close_menu();
+                        }
+                    });
+                });
 
-    if p_base.is_null() {
-        bail!("Failed to find ac_client.exe module!")
-    }
+                ui.menu_button("Help", |ui| {
+                    ui.heading(RichText::new("AssaultCube Aimbot").color(PALETTE_TEXT));
 
-    let alloc = SendAlloc::new(CVoidPtr(h_process), CVoidPtr(p_base));
-    let tasks = Tasks::from_alloc(alloc);
+                    ui.label("Press Toggle Aimbot and enter AssaultCube.");
+                    ui.label("Hold F ingame to use the aimbot.");
 
-    cli(tasks)
+                    ui.separator();
+                    ui.hyperlink_to("GitHub", "https://github.com/zofiaclient/memwar")
+                        .on_hover_text("This program was written with memwar.");
+                });
+            });
+
+            ui.vertical_centered(|ui| {
+                ui.heading(RichText::new("AssaultCube Aimbot").color(PALETTE_TEXT));
+                ui.label("Written by Zofia");
+                
+                ui.separator();
+                state.console.to_ui(ui);
+                
+                if ui
+                    .add(Button::new("Toggle Aimbot").fill(PALETTE_BACKGROUND))
+                    .on_hover_ui(|ui| {
+                        ui.heading(RichText::new("Aimbot").color(PALETTE_TEXT));
+                        ui.label("When enabled, hold F to use the aimbot.");
+                    })
+                    .clicked()
+                {
+                    state.aimbot_task.toggle_enabled();
+                }
+
+                if state.aimbot_task.is_enabled() {
+                    ui.label("Aimbot is enabled. Hold F ingame to use the aimbot.");
+                } else {
+                    ui.label("Aimbot is disabled. Hold F ingame to use the aimbot.");
+                }
+
+                match state.aimbot_task.try_recv_data() {
+                    Ok(entity_name) => {
+                        ui.colored_label(
+                            Color32::LIGHT_GREEN,
+                            format!("Aimed at player `{}`", entity_name),
+                        );
+                    }
+                    Err(TryRecvError::Empty) => {
+                        ui.label("Awaiting aimbot response..");
+                    }
+                    Err(TryRecvError::Disconnected) => {
+                        state.console.add("Thread disconnected".to_string());
+
+                        if ui.button("Restart thread").clicked() {
+                            state.aimbot_task = tasks::new_aimbot_task();
+                        }
+                    }
+                };
+
+                match state.aimbot_task.read_error() {
+                    Ok(err) => {
+                        state.console.add(format!("Aimbot error: {err}"));
+                    }
+                    Err(TryRecvError::Disconnected) => {
+                        ui.colored_label(Color32::RED, "Thread disconnected");
+                    }
+                    Err(TryRecvError::Empty) => (),
+                }
+            });
+        });
+    });
+    gfx.render(&output);
 }
 
-fn main() -> Result<()> {
-    unsafe { run() }
+fn main() -> Result<(), String> {
+    let wnd_cfg = WindowConfig::new()
+        .set_title("AssaultCube Aimbot")
+        .set_vsync(true);
+
+    notan::init_with(State::new)
+        .add_config(wnd_cfg)
+        .add_config(EguiConfig)
+        .add_config(DrawConfig)
+        .draw(draw)
+        .build()
 }

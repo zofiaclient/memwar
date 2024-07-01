@@ -7,9 +7,6 @@ use crate::pointers;
 #[derive(Debug)]
 pub struct Entity {
     health: i32,
-    armor: i32,
-    ammo: i32,
-    is_alive: bool,
     is_blue_team: bool,
     name: [u8; 15],
     head_position: Vector3,
@@ -20,31 +17,34 @@ impl Entity {
     pub fn calc_distance(&self, dest: &Entity) -> f32 {
         (dest.head_position.0 - self.head_position.0).powf(2.0)
             + (dest.head_position.1 - self.head_position.1).powf(2.0)
-            + (dest.head_position.2 - self.head_position.2).powf(2.0)
+            + (dest.head_position.2 - self.head_position.2)
+                .powf(2.0)
                 .sqrt()
     }
 
-    unsafe fn read_from(p_entity: *mut c_void, alloc: &Allocation) -> Result<Self, u32> {
-        let health = alloc.read_i32(p_entity.add(pointers::OFFS_ENTITY_HEALTH))?;
-        let armor = alloc.read_i32(p_entity.add(pointers::OFFS_ENTITY_AMMO))?;
-        let ammo = alloc.read_i32(p_entity.add(pointers::OFFS_ENTITY_AMMO))?;
+    unsafe fn read_from(p_entity: *mut c_void, alloc: &Allocation) -> Result<Self, String> {
+        let health = alloc
+            .read_i32(p_entity.add(pointers::OFFS_ENTITY_HEALTH))
+            .map_err(|e| format!("({e}) Failed to read entity health"))?;
 
-        let is_alive = alloc.read_u8(p_entity.add(pointers::OFFS_ENTITY_IS_ALIVE))? > 0;
-        let is_blue_team = alloc.read_u8(p_entity.add(pointers::OFFS_ENTITY_TEAM))? > 0;
+        let is_blue_team = alloc
+            .read_u8(p_entity.add(pointers::OFFS_ENTITY_TEAM))
+            .map_err(|e| format!("({e}) Failed to read entity team"))?
+            > 0;
 
-        let name: [u8; 15] = alloc.read_const(p_entity.add(pointers::OFFS_ENTITY_NAME))?;
+        let name: [u8; 15] = alloc
+            .read_const(p_entity.add(pointers::OFFS_ENTITY_NAME))
+            .map_err(|e| format!("({e}) Failed to read entity name"))?;
 
         let head_position =
-            Vector3::read_from(p_entity.add(pointers::OFFS_ENTITY_HEAD_POSITION), alloc)?;
+            Vector3::read_from(p_entity.add(pointers::OFFS_ENTITY_HEAD_POSITION), alloc)
+                .map_err(|e| format!("({e}) Failed to read entity head position"))?;
 
-        let view_angles =
-            Vector2::read_from(p_entity.add(pointers::OFFS_ENTITY_VIEW_ANGLE), alloc)?;
+        let view_angles = Vector2::read_from(p_entity.add(pointers::OFFS_ENTITY_VIEW_ANGLE), alloc)
+            .map_err(|e| format!("({e}) Failed to read entity view angles"))?;
 
         Ok(Self {
             health,
-            armor,
-            ammo,
-            is_alive,
             is_blue_team,
             name,
             head_position,
@@ -52,20 +52,36 @@ impl Entity {
         })
     }
 
-    pub unsafe fn from_list(alloc: &Allocation) -> Result<Vec<Self>, u32> {
+    pub unsafe fn from_list(alloc: &Allocation) -> Result<Vec<Self>, String> {
         let p_player_count = alloc
-            .deref_chain_with_base(pointers::PLAYER_COUNT as _, pointers::OFFS_PLAYER_COUNT)?;
+            .deref_chain_with_base(pointers::PLAYER_COUNT as _, pointers::OFFS_PLAYER_COUNT)
+            .map_err(|e| format!("({e}) Failed to dereference player count"))?;
 
-        let player_count = alloc.read_i32(p_player_count)?;
-        let player_count = player_count as usize;
+        let player_count = alloc
+            .read_i32(p_player_count)
+            .map_err(|e| format!("({e}) Failed to read player count"))?;
+
+        if player_count <= 0 {
+            return Err(format!("Invalid player count ({player_count})"));
+        }
 
         let mut entities = vec![];
 
         // The local player is stored elsewhere.
-        for i in 0..player_count - 1 {
-            let p_entity_list = alloc.read_u32(pointers::ENTITY_LIST as _)? as usize;
-            let p_entity = alloc.read_u32((p_entity_list + i * 0x4) as _)?;
-            entities.push(Self::read_from(p_entity as _, alloc)?)
+        for i in 0..player_count as usize - 1 {
+            let p_entity_list = alloc
+                .read_u32(pointers::ENTITY_LIST as _)
+                .map_err(|e| format!("({e}) Failed to read pointer to entity list"))?
+                as usize;
+
+            let p_entity = alloc
+                .read_u32((p_entity_list + i * 0x4) as _)
+                .map_err(|e| format!("({e}) Failed to read entity pointer"))?;
+
+            entities.push(
+                Self::read_from(p_entity as _, alloc)
+                    .map_err(|e| format!("Failed to read entity at index {i}: {e}"))?,
+            )
         }
         Ok(entities)
     }
@@ -74,16 +90,8 @@ impl Entity {
         self.health
     }
 
-    pub const fn armor(&self) -> i32 {
-        self.armor
-    }
-
-    pub const fn ammo(&self) -> i32 {
-        self.ammo
-    }
-
     pub const fn is_alive(&self) -> bool {
-        self.is_alive
+        self.health > 0
     }
 
     pub const fn head_position(&self) -> &Vector3 {
@@ -117,31 +125,41 @@ impl LocalPlayer {
         let delta_x = dest.head_position.0 - self.entity.head_position.0;
         let delta_y = dest.head_position.1 - self.entity.head_position.1;
         let delta_z = dest.head_position.2 - self.entity.head_position.2;
-        
+
         let magn = (delta_x.powf(2.0) + delta_y.powf(2.0) + delta_z.powf(2.0)).sqrt();
-        
+
         let yaw = delta_y.atan2(delta_x).to_degrees() + 90.0;
         let pitch = (delta_z / magn).tan().to_degrees();
-        
+
         Vector2(yaw, pitch)
     }
 
-    pub unsafe fn aim_at(&self, dest: &Entity, alloc: &Allocation) -> Result<(), u32> {
+    pub unsafe fn aim_at(&self, dest: &Entity, alloc: &Allocation) -> Result<(), String> {
         let view_angles = self.calc_view_angles(dest);
 
-        alloc.write_f32(
-            self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE),
-            view_angles.0,
-        )?;
-        alloc.write_f32(
-            self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE + 4),
-            view_angles.1,
-        )?;
+        alloc
+            .write_f32(
+                self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE),
+                view_angles.0,
+            )
+            .map_err(|e| format!("({e}) Failed to write entity view angle yaw"))?;
+
+        alloc
+            .write_f32(
+                self.p_base.add(pointers::OFFS_ENTITY_VIEW_ANGLE + 4),
+                view_angles.1,
+            )
+            .map_err(|e| format!("({e}) Failed to write entity view angle pitch"))?;
+
         Ok(())
     }
 
-    pub unsafe fn read_from(alloc: &Allocation) -> Result<Self, u32> {
-        let p_base = alloc.read_u32(alloc.inner().add(pointers::LOCAL_PLAYER))? as _;
+    pub unsafe fn read_from(alloc: &Allocation) -> Result<Self, String> {
+        let p_base = alloc
+            .read_u32(alloc.inner().add(pointers::LOCAL_PLAYER))
+            .map_err(|e| format!("({e}) Failed to read local player pointer"))?
+            as _;
+
         Ok(Self {
             p_base,
             entity: Entity::read_from(p_base, alloc)?,

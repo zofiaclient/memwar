@@ -21,9 +21,7 @@ pub unsafe fn open_process_handle(pid: u32) -> Result<HANDLE, DWORD> {
 }
 
 #[allow(clippy::missing_safety_doc)]
-pub unsafe fn get_process_by_name(
-    process_name: &str,
-) -> Result<Option<u32>, DWORD> {
+pub unsafe fn get_process_by_name(process_name: &str) -> Result<Option<u32>, DWORD> {
     let sys = System::new_all();
     let lower = process_name.to_lowercase();
 

@@ -14,7 +14,7 @@ use winapi::um::processthreadsapi::GetCurrentProcess;
 use winapi::um::winnt::{HANDLE, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_EXECUTE_READWRITE};
 
 /// Required wrapper struct for sharing pointers between threads.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct CVoidPtr(pub *mut c_void);
 
 unsafe impl Send for CVoidPtr {}
