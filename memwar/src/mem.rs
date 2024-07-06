@@ -18,6 +18,7 @@ use winapi::um::winnt::{HANDLE, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_EXECU
 pub struct CVoidPtr(pub *mut c_void);
 
 unsafe impl Send for CVoidPtr {}
+unsafe impl Sync for CVoidPtr {}
 
 #[derive(Debug, Clone)]
 pub struct Vector2(pub f32, pub f32);
@@ -109,6 +110,9 @@ impl SendAlloc {
         self.p_base
     }
 }
+
+unsafe impl Send for SendAlloc {}
+unsafe impl Sync for SendAlloc {}
 
 /// A wrapper struct for more direct approaches to the Read/WriteProcessMemory API functions.
 pub struct Allocation {
