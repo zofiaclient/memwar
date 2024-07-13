@@ -162,6 +162,5 @@ pub unsafe fn get_headers(
             recommended_platform: 64,
         });
     }
-
     Ok((p_dos_header, p_nt_header))
 }

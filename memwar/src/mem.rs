@@ -29,6 +29,16 @@ impl Vector2 {
         Ok(Self(alloc.read_f32(base)?, alloc.read_f32(base.add(4))?))
     }
 
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_from_list(base: *mut c_void, spacing: usize, size: usize, alloc: &Allocation) -> Result<Vec<Self>, u32> {
+        let mut out = vec![];
+
+        for i in 0..size {
+            out.push(Self::read_from(base.add(i * spacing), alloc)?);
+        }
+        Ok(out)
+    }
+    
     pub fn len(&self) -> f32 {
         (self.0.powf(2.0) + self.1.powf(2.0)).sqrt()
     }
@@ -66,6 +76,16 @@ impl Vector3 {
             alloc.read_f32(base.add(4))?,
             alloc.read_f32(base.add(8))?,
         ))
+    }
+
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn read_from_list(base: *mut c_void, spacing: usize, size: usize, alloc: &Allocation) -> Result<Vec<Self>, u32> {
+        let mut out = vec![];
+        
+        for i in 0..size {
+            out.push(Self::read_from(base.add(i * spacing), alloc)?);
+        }
+        Ok(out)
     }
 
     pub fn len(&self) -> f32 {
