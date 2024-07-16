@@ -192,7 +192,7 @@ impl Tasks {
 }
 ```
 
-## Defining constants in the `pointers.rs` module
+## Defining constants in the `offsets.rs` module
 
 Now that we have our half-finished implementation of our tasks module, we need to store a few constants. These constants
 will store the game module's address of our base pointer, and the offsets of the chain of later pointers.
@@ -203,7 +203,7 @@ more pointer. We need to add offset `0xEC` to get the address of our final healt
 address `0017E0A8` gave us our local player address, which we can take advantage of later on.
 
 ```rust
-// offsets
+// offsets.rs
 
 pub const LOCAL_PLAYER: usize = 0x0017E0A8;
 
@@ -284,7 +284,7 @@ unsafe fn new_health_task(alloc: SendAlloc) -> Task<i32, u32> {
                 let alloc = Allocation::from(alloc);
 
                 let p_health = match alloc
-                    .deref_chain_with_base(pointers::LOCAL_PLAYER as _, pointers::OFFS_LOCAL_PLAYER_HEALTH)
+                    .deref_chain_with_base(offsets::LOCAL_PLAYER as _, offsets::OFFS_LOCAL_PLAYER_HEALTH)
                 {
                     Ok(v) => v,
                     Err(e) => {
