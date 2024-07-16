@@ -1,49 +1,13 @@
-use memwar::mem::Allocation;
-use memwar::tasks::ReceiverTask;
 use memwar::{module, process};
-
-use crate::entity::{Entity, LocalPlayer};
-use crate::tasks;
-
-pub struct GameData {
-    local_player: LocalPlayer,
-    entities: Vec<Entity>,
-}
-
-impl GameData {
-    pub const fn local_player(&self) -> &LocalPlayer {
-        &self.local_player
-    }
-
-    pub const fn entities(&self) -> &Vec<Entity> {
-        &self.entities
-    }
-
-    pub unsafe fn read_from(ac_client_mod_alloc: &Allocation) -> Result<Self, String> {
-        Ok(Self {
-            local_player: LocalPlayer::read_from(ac_client_mod_alloc)?,
-            entities: Entity::from_list(ac_client_mod_alloc)?,
-        })
-    }
-}
+use memwar::mem::Allocation;
 
 pub struct GameManager {
     ac_client_mod_alloc: Allocation,
-    game_data: Result<GameData, String>,
-    aimbot_task: ReceiverTask<String, String>,
 }
 
 impl GameManager {
     pub const fn ac_client_mod_alloc(&self) -> &Allocation {
         &self.ac_client_mod_alloc
-    }
-
-    pub const fn game_data(&self) -> &Result<GameData, String> {
-        &self.game_data
-    }
-
-    pub const fn aimbot_task(&self) -> &ReceiverTask<String, String> {
-        &self.aimbot_task
     }
 
     pub unsafe fn setup() -> Result<Self, String> {
@@ -62,12 +26,9 @@ impl GameManager {
         }
 
         let ac_client_mod_alloc = Allocation::existing(h_process, p_base);
-        let game_data = GameData::read_from(&ac_client_mod_alloc);
 
         Ok(Self {
             ac_client_mod_alloc,
-            game_data,
-            aimbot_task: tasks::new_aimbot_task(),
         })
     }
 }

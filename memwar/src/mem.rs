@@ -126,6 +126,10 @@ impl SendAlloc {
         Self { h_process, p_base }
     }
 
+    pub const fn h_process(&self) -> CVoidPtr {
+        self.h_process
+    }
+    
     pub const fn p_base(&self) -> CVoidPtr {
         self.p_base
     }

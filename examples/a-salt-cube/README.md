@@ -203,7 +203,7 @@ more pointer. We need to add offset `0xEC` to get the address of our final healt
 address `0017E0A8` gave us our local player address, which we can take advantage of later on.
 
 ```rust
-// pointers.rs
+// offsets
 
 pub const LOCAL_PLAYER: usize = 0x0017E0A8;
 

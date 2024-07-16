@@ -6,31 +6,28 @@ use std::time::Duration;
 use memwar::tasks::ReceiverTask;
 use winapi::um::winuser::GetAsyncKeyState;
 
-use crate::entity::Entity;
-use crate::game::{GameData, GameManager};
+use crate::entity::{Entity, LocalPlayer};
+use crate::game::GameManager;
 
-fn aimbot(game_manager: &GameManager, data: &GameData) -> Result<String, String> {
-    let local_player_entity = data.local_player().entity();
-
-    let mut entities: Vec<&Entity> = data
-        .entities()
+fn aimbot(game_manager: &GameManager, local_player: &LocalPlayer, entities: &[Entity]) -> Result<String, String> {
+    let mut entities: Vec<&Entity> = entities
         .iter()
-        .filter(|e| e.health() > 0 && e.is_blue_team() != local_player_entity.is_blue_team())
+        .filter(|e| e.health() > 0 && e.is_blue_team() != local_player.entity().is_blue_team())
         .collect();
 
     entities.sort_by(|l, r| {
-        local_player_entity
+        local_player.entity()
             .calc_distance(l)
-            .partial_cmp(&local_player_entity.calc_distance(r))
+            .partial_cmp(&local_player.entity().calc_distance(r))
             .expect("Distance returned NAN!")
     });
 
     if let Some(entity) = entities.first() {
         unsafe {
-            data.local_player()
+            local_player
                 .aim_at(entity, game_manager.ac_client_mod_alloc())?;
 
-            return Ok(entity.name_as_string());
+            return Ok(entity.name().to_string());
         }
     }
     Err("Found no entities.".to_string())
@@ -68,18 +65,26 @@ pub fn new_aimbot_task() -> ReceiverTask<String, String> {
                 }
             };
 
-            let game_data = match GameData::read_from(game_manager.ac_client_mod_alloc()) {
+            let local_player = match LocalPlayer::read_from(game_manager.ac_client_mod_alloc()) {
                 Ok(v) => v,
-                Err(e) => {
-                    let _ = err_sender.send(e);
+                Err(err) => {
+                    let _ = err_sender.send(err);
                     continue;
                 }
             };
 
-            match aimbot(game_manager, &game_data) {
+            let entities = match Entity::read_from_list(game_manager.ac_client_mod_alloc()) {
+                Ok(v) => v,
+                Err(err) => {
+                    let _ = err_sender.send(err);
+                    continue;
+                }
+            };
+            
+            match aimbot(game_manager, &local_player, &entities) {
                 Ok(entity_name) => {
                     if let Err(err) = sender.send(entity_name) {
-                        let _ = err_sender.send(format!("Thread sender error: {err}"));
+                        let _ = err_sender.send(format!("Aimbot thread sender error: {err}"));
                     }
                 }
                 Err(err) => {
