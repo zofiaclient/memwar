@@ -20,10 +20,6 @@ impl<T, E> ReceiverTask<T, E> {
     pub fn is_enabled(&self) -> bool {
         self.is_enabled.load(Ordering::Relaxed)
     }
-
-    pub fn enabled_mut(&mut self) -> &mut bool {
-        self.is_enabled.get_mut()
-    }
     
     pub fn toggle_enabled(&self) {
         self.set_enabled(!self.is_enabled());
@@ -63,10 +59,6 @@ impl<T, E> SenderTask<T, E> {
 
     pub fn is_enabled(&self) -> bool {
         self.is_enabled.load(Ordering::Relaxed)
-    }
-
-    pub fn enabled_mut(&mut self) -> &mut bool {
-        self.is_enabled.get_mut()
     }
 
     pub fn toggle_enabled(&self) {
