@@ -8,5 +8,5 @@ members = [
     "examples/assaultcube-aimbot",
     #"examples/assaultcube-esp",
     #"examples/hello-world-payload",
-    "examples/assaultcube-health-payload"
+    #"examples/assaultcube-health-payload"
 ]

@@ -20,7 +20,7 @@ impl<T, E> ReceiverTask<T, E> {
     pub fn is_enabled(&self) -> bool {
         self.is_enabled.load(Ordering::Relaxed)
     }
-    
+
     pub fn toggle_enabled(&self) {
         self.set_enabled(!self.is_enabled());
     }

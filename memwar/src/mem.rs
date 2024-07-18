@@ -1,9 +1,11 @@
 use std::ffi::c_void;
-use std::fmt;
 use std::fmt::{Debug, Formatter};
+use std::io::{Cursor, Error, ErrorKind};
 use std::ops::{Add, Sub};
 use std::ptr::{addr_of_mut, null_mut};
+use std::{fmt, io};
 
+use tora::read::{FromReader, PaddedReader};
 use winapi::shared::minwindef::DWORD;
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -30,7 +32,12 @@ impl Vector2 {
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn read_from_list(base: *mut c_void, spacing: usize, size: usize, alloc: &Allocation) -> Result<Vec<Self>, u32> {
+    pub unsafe fn read_from_list(
+        base: *mut c_void,
+        spacing: usize,
+        size: usize,
+        alloc: &Allocation,
+    ) -> Result<Vec<Self>, u32> {
         let mut out = vec![];
 
         for i in 0..size {
@@ -38,7 +45,7 @@ impl Vector2 {
         }
         Ok(out)
     }
-    
+
     pub fn len(&self) -> f32 {
         (self.0.powf(2.0) + self.1.powf(2.0)).sqrt()
     }
@@ -79,9 +86,14 @@ impl Vector3 {
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn read_from_list(base: *mut c_void, spacing: usize, size: usize, alloc: &Allocation) -> Result<Vec<Self>, u32> {
+    pub unsafe fn read_from_list(
+        base: *mut c_void,
+        spacing: usize,
+        size: usize,
+        alloc: &Allocation,
+    ) -> Result<Vec<Self>, u32> {
         let mut out = vec![];
-        
+
         for i in 0..size {
             out.push(Self::read_from(base.add(i * spacing), alloc)?);
         }
@@ -129,7 +141,7 @@ impl SendAlloc {
     pub const fn h_process(&self) -> CVoidPtr {
         self.h_process
     }
-    
+
     pub const fn p_base(&self) -> CVoidPtr {
         self.p_base
     }
@@ -161,6 +173,33 @@ impl Allocation {
             return Err(GetLastError());
         }
         Ok(())
+    }
+
+    /// Reads a [Vec] of [T] after a read of `size` bytes at the given address.
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn reads_vec<T>(
+        &self,
+        addr: *mut c_void,
+        padding: usize,
+        size: usize,
+    ) -> io::Result<Vec<T>>
+    where
+        T: FromReader,
+    {
+        let mut buf = vec![0; size];
+        
+        self.read(addr, buf.as_mut_ptr() as _, size)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("({e}) Failed to read bytes at address {addr:p}")))?;
+
+        let mut cursor = Cursor::new(buf);
+        let mut items = vec![];
+
+        let padded_reader = PaddedReader::with_padding(padding);
+
+        while items.len() < size {
+            items.push(padded_reader.reads(&mut cursor)?);
+        }
+        Ok(items)
     }
 
     /// Reads a [f32] from the given address.

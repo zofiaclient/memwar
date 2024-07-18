@@ -9,14 +9,19 @@ use winapi::um::winuser::GetAsyncKeyState;
 use crate::entity::{Entity, LocalPlayer};
 use crate::game::GameManager;
 
-fn aimbot(game_manager: &GameManager, local_player: &LocalPlayer, entities: &[Entity]) -> Result<String, String> {
+fn aimbot(
+    game_manager: &GameManager,
+    local_player: &LocalPlayer,
+    entities: &[Entity],
+) -> Result<String, String> {
     let mut entities: Vec<&Entity> = entities
         .iter()
         .filter(|e| e.health() > 0 && e.is_blue_team() != local_player.entity().is_blue_team())
         .collect();
 
     entities.sort_by(|l, r| {
-        local_player.entity()
+        local_player
+            .entity()
             .calc_distance(l)
             .partial_cmp(&local_player.entity().calc_distance(r))
             .expect("Distance returned NAN!")
@@ -24,8 +29,7 @@ fn aimbot(game_manager: &GameManager, local_player: &LocalPlayer, entities: &[En
 
     if let Some(entity) = entities.first() {
         unsafe {
-            local_player
-                .aim_at(entity, game_manager.ac_client_mod_alloc())?;
+            local_player.aim_at(entity, game_manager.ac_client_mod_alloc())?;
 
             return Ok(entity.name().to_string());
         }
@@ -80,7 +84,7 @@ pub fn new_aimbot_task() -> ReceiverTask<String, String> {
                     continue;
                 }
             };
-            
+
             match aimbot(game_manager, &local_player, &entities) {
                 Ok(entity_name) => {
                     if let Err(err) = sender.send(entity_name) {

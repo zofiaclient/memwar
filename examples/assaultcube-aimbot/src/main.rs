@@ -4,13 +4,12 @@ use std::sync::mpsc::TryRecvError;
 
 use eframe::egui::{CentralPanel, Color32, RichText, Stroke};
 use eframe::emath::Vec2;
-use notan::app::{App, Graphics, Plugins};
-use notan::AppState;
-use notan::draw::DrawConfig;
-use notan::egui::{EguiConfig, EguiPluginSugar, Frame, Margin, menu};
-use notan::prelude::WindowConfig;
-
 use memwar::tasks::ReceiverTask;
+use notan::app::{App, Graphics, Plugins};
+use notan::draw::DrawConfig;
+use notan::egui::{menu, EguiConfig, EguiPluginSugar, Frame, Margin};
+use notan::prelude::WindowConfig;
+use notan::AppState;
 
 mod entity;
 mod game;
@@ -138,8 +137,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
 }
 
 fn main() -> Result<(), String> {
-    let wnd_cfg = WindowConfig::new()
-        .set_title("AssaultCube Aimbot");
+    let wnd_cfg = WindowConfig::new().set_title("AssaultCube Aimbot");
 
     notan::init_with(State::new)
         .add_config(wnd_cfg)

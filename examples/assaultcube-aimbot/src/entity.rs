@@ -34,7 +34,7 @@ impl Entity {
         let name: [u8; 15] = alloc
             .read_const(p_entity.add(offsets::OFFS_ENTITY_NAME))
             .map_err(|e| format!("({e}) Failed to read entity name"))?;
-        
+
         let name = String::from_utf8_lossy(&name).to_string();
 
         let head_position =
@@ -86,7 +86,7 @@ impl Entity {
     pub fn name(&self) -> &str {
         &self.name
     }
-    
+
     pub const fn health(&self) -> i32 {
         self.health
     }
@@ -98,7 +98,7 @@ impl Entity {
     pub const fn head_position(&self) -> &Vector3 {
         &self.head_position
     }
-    
+
     pub const fn is_blue_team(&self) -> bool {
         self.is_blue_team
     }

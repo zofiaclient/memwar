@@ -1,5 +1,5 @@
-use memwar::{module, process};
 use memwar::mem::Allocation;
+use memwar::{module, process};
 
 pub struct GameManager {
     ac_client_mod_alloc: Allocation,
