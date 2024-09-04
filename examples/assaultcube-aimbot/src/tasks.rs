@@ -16,7 +16,7 @@ fn aimbot(
 ) -> Result<String, String> {
     let mut entities: Vec<&Entity> = entities
         .iter()
-        .filter(|e| e.health() > 0 && e.is_blue_team() != local_player.entity().is_blue_team())
+        .filter(|e| e.is_alive() && e.is_blue_team() != local_player.entity().is_blue_team())
         .collect();
 
     entities.sort_by(|l, r| {

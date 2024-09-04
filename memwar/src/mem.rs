@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::fmt::{Debug, Formatter};
 use std::io::{Cursor, Error, ErrorKind};
-use std::ops::{Add, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 use std::ptr::{addr_of_mut, null_mut};
 use std::{fmt, io};
 
@@ -57,7 +57,7 @@ impl Vector2 {
 }
 
 impl Sub for Vector2 {
-    type Output = Vector2;
+    type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0, self.1 - rhs.1)
@@ -65,10 +65,26 @@ impl Sub for Vector2 {
 }
 
 impl Add for Vector2 {
-    type Output = Vector2;
+    type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self(self.0 + rhs.0, self.1 + rhs.1)
+    }
+}
+
+impl Mul<f32> for Vector2 {
+    type Output = Self;
+    
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self(self.0 * rhs, self.1 * rhs)
+    }
+}
+
+impl Div<f32> for Vector2 {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self(self.0 / rhs, self.1 / rhs)
     }
 }
 
@@ -111,7 +127,7 @@ impl Vector3 {
 }
 
 impl Sub for Vector3 {
-    type Output = Vector3;
+    type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2)
@@ -119,10 +135,26 @@ impl Sub for Vector3 {
 }
 
 impl Add for Vector3 {
-    type Output = Vector3;
+    type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
+    }
+}
+
+impl Mul<f32> for Vector3 {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self(self.0 * rhs, self.1 * rhs, self.2 * rhs)
+    }
+}
+
+impl Div<f32> for Vector3 {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self(self.0 / rhs, self.1 / rhs, self.2 / rhs)
     }
 }
 

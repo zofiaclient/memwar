@@ -94,11 +94,7 @@ impl Entity {
     pub const fn is_alive(&self) -> bool {
         self.health > 0
     }
-
-    pub const fn head_position(&self) -> &Vector3 {
-        &self.head_position
-    }
-
+    
     pub const fn is_blue_team(&self) -> bool {
         self.is_blue_team
     }
