@@ -22,7 +22,7 @@ pub struct CVoidPtr(pub *mut c_void);
 unsafe impl Send for CVoidPtr {}
 unsafe impl Sync for CVoidPtr {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Vector2(pub f32, pub f32);
 
 impl Vector2 {
@@ -88,7 +88,7 @@ impl Div<f32> for Vector2 {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Vector3(pub f32, pub f32, pub f32);
 
 impl Vector3 {
